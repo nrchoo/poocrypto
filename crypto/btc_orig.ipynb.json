@@ -1,0 +1,583 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "data": {
+      "text/html": [
+       "<style>.container { width:95% !important; }</style>"
+      ],
+      "text/plain": [
+       "<IPython.core.display.HTML object>"
+      ]
+     },
+     "metadata": {},
+     "output_type": "display_data"
+    }
+   ],
+   "source": [
+    "from IPython.core.display import display, HTML\n",
+    "display(HTML(\"<style>.container { width:95% !important; }</style>\"))\n",
+    "import os\n",
+    "import pandas as pd\n",
+    "import sqlite3\n",
+    "import sqlalchemy \n",
+    "from bs4 import Comment,BeautifulSoup\n",
+    "import requests\n",
+    "\n",
+    "from datetime import date\n",
+    "from dateutil.rrule import rrule, DAILY\n",
+    "\n",
+    "#Standard Imports\n",
+    "import csv\n",
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "from pandas import DataFrame,Series\n",
+    "import statsmodels.api as sm\n",
+    "import matplotlib.pyplot as plt\n",
+    "from sklearn.linear_model import LogisticRegression\n",
+    "from sklearn.cross_validation import KFold\n",
+    "import re\n",
+    "from sklearn.cluster import KMeans\n",
+    "import random\n",
+    "from sklearn import datasets\n",
+    "from sklearn import metrics\n",
+    "\n",
+    "%matplotlib inline\n",
+    "\n",
+    "pd.set_option(\"display.max_columns\",50)\n",
+    "pd.set_option(\"display.max_rows\",300)\n",
+    "\n",
+    "import matplotlib\n",
+    "#matplotlib.style.use('default')\n",
+    "import seaborn as sns\n",
+    "from datetime import datetime"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 89,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "def soup_coin(coin,start,end,zip_all):\n",
+    "    ticker = zip_all.get(coin)\n",
+    "    \n",
+    "    #This function returns a dataframe of the coin within a time frame\n",
+    "    # e.g df = soup_coin('bitcoin',20180101,20180109)\n",
+    "    url = 'https://coinmarketcap.com/currencies/' + str(coin) + '/historical-data/' + '?start=' + str(start) + '&end=' + str(end)\n",
+    "    print url\n",
+    "    html = requests.get(url).text\n",
+    "    soup = BeautifulSoup(html,'html5lib')\n",
+    "    table = soup('table')[0] #assume one table\n",
+    "    cols = [inner.renderContents() for inner in soup('table')[0].findAll('th')]\n",
+    "    tds = [el.renderContents() for el in soup('table')[0].findAll('td')]\n",
+    "    df = DataFrame(np.array(tds).reshape((len(tds)/len(cols),len(cols))),columns = cols)\n",
+    "    \n",
+    "    #df.Date = df.Date.apply(lambda x: datetime.strptime(x,'%b %d, %Y').strftime('%b %d,%Y'))\n",
+    "    df.Date = df.Date.apply(lambda x: datetime.strptime(x,'%b %d, %Y'))\n",
+    "\n",
+    "    #Format columns\n",
+    "    df.Open = df.Open.astype(float)\n",
+    "    df.High = df.High.astype(float)\n",
+    "    df.Low = df.Low.astype(float)\n",
+    "    df.Close = df.Close.astype(float)\n",
+    "    df.Volume = df.Volume.apply(lambda x: x.replace(',','')).astype(int)\n",
+    "    #df['Market Cap'] = df['Market Cap'].apply(lambda x: x.replace(',','')).astype(int)\n",
+    "    df['Ticker'] = [ticker] * len(df.Open) \n",
+    "        \n",
+    "    return df"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 93,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "https://coinmarketcap.com/currencies/deepbrain-child/historical-data/?start=20161220&end=20180109\n"
+     ]
+    },
+    {
+     "ename": "IndexError",
+     "evalue": "list index out of range",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mIndexError\u001b[0m                                Traceback (most recent call last)",
+      "\u001b[0;32m<ipython-input-93-d7568d71aaee>\u001b[0m in \u001b[0;36m<module>\u001b[0;34m()\u001b[0m\n\u001b[0;32m----> 1\u001b[0;31m \u001b[0mdf\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0msoup_coin\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'deepbrain-child'\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;36m20161220\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;36m20180109\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0mdict\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mzip_all\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m      2\u001b[0m \u001b[0mdf\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m<ipython-input-89-a166980c5bdb>\u001b[0m in \u001b[0;36msoup_coin\u001b[0;34m(coin, start, end, zip_all)\u001b[0m\n\u001b[1;32m      8\u001b[0m     \u001b[0mhtml\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mrequests\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mget\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0murl\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mtext\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m      9\u001b[0m     \u001b[0msoup\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mBeautifulSoup\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mhtml\u001b[0m\u001b[0;34m,\u001b[0m\u001b[0;34m'html5lib'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m---> 10\u001b[0;31m     \u001b[0mtable\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0msoup\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'table'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;36m0\u001b[0m\u001b[0;34m]\u001b[0m \u001b[0;31m#assume one table\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m     11\u001b[0m     \u001b[0mcols\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;34m[\u001b[0m\u001b[0minner\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mrenderContents\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;32mfor\u001b[0m \u001b[0minner\u001b[0m \u001b[0;32min\u001b[0m \u001b[0msoup\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'table'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;36m0\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mfindAll\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'th'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m     12\u001b[0m     \u001b[0mtds\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;34m[\u001b[0m\u001b[0mel\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mrenderContents\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m)\u001b[0m \u001b[0;32mfor\u001b[0m \u001b[0mel\u001b[0m \u001b[0;32min\u001b[0m \u001b[0msoup\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'table'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0;36m0\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mfindAll\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'td'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;31mIndexError\u001b[0m: list index out of range"
+     ]
+    }
+   ],
+   "source": [
+    "df = soup_coin('deepbrain-child',20161220,20180109,dict(zip_all))\n",
+    "df"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 58,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "def all_tickers():\n",
+    "    url = 'https://coinmarketcap.com/coins/views/all/'\n",
+    "    url = 'https://coinmarketcap.com/all/views/all/'\n",
+    "    soup = BeautifulSoup(requests.get(url).text,'html5lib')\n",
+    "    all_tickers = [el.renderContents() for el in soup.findAll('td', {'class':\"text-left col-symbol\"})]\n",
+    "    return all_tickers"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 59,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "all_tickers = all_tickers()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 73,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "def all_coin_names():\n",
+    "    #This function \n",
+    "    url = 'https://coinmarketcap.com/coins/views/all/'\n",
+    "    url = 'https://coinmarketcap.com/all/views/all/'\n",
+    "\n",
+    "    soup = BeautifulSoup(requests.get(url).text,'html5lib')\n",
+    "    ac = soup.findAll('a', {'class':\"currency-name-container\"},href=True)\n",
+    "    all_coins = [name['href'].split('/')[-2] for name in ac]\n",
+    "    return all_coins"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 74,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "all_coin_names = all_coin_names()"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 75,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "zip_all = zip(all_coin_names,all_tickers)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": []
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 81,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": [
+    "def create_all_coin_df(all_coin_names):\n",
+    "    concat_df = DataFrame()\n",
+    "    for coin in all_coin_names:\n",
+    "        try:\n",
+    "            concat_df = pd.concat([concat_df,soup_coin(coin,20171225,20180111,dict(zip_all))])\n",
+    "        except ValueError:\n",
+    "            print \"Error with coin\", coin\n",
+    "            continue\n",
+    "    return concat_df"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 82,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "https://coinmarketcap.com/currencies/bitcoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/ethereum/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/ripple/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/bitcoin-cash/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/cardano/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/litecoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/nem/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/stellar/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/iota/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/dash/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/neo/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/tron/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/eos/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/monero/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/icon/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin icon\n",
+      "https://coinmarketcap.com/currencies/bitcoin-gold/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/qtum/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/raiblocks/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/ethereum-classic/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/lisk/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/binance-coin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/omisego/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/verge/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/zcash/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/siacoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/bitconnect/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/populous/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/vechain/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/bytecoin-bcn/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/kucoin-shares/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/stratis/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/bitshares/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/tether/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/status/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/ardor/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/dogecoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/augur/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/steem/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/waves/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/dentacoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/dragonchain/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/0x/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/digibyte/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/veritaseum/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/wax/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin wax\n",
+      "https://coinmarketcap.com/currencies/komodo/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/ark/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/hshare/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/electroneum/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/golem-network-tokens/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/medibloc/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin medibloc\n",
+      "https://coinmarketcap.com/currencies/basic-attention-token/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/dent/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/decred/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/pivx/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/salt/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/qash/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/ethos/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/experience-points/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/kyber-network/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/funfair/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/reddcoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/bytom/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/gxshares/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/aelf/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin aelf\n",
+      "https://coinmarketcap.com/currencies/power-ledger/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/request-network/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/zclassic/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/nexus/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/aion/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/kin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/aeternity/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/factom/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/byteball/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/enigma-project/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/rchain/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/substratum/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/gas/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/monacoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/smartcash/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/nxt/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/syscoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/maidsafecoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/digixdao/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/neblio/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/iconomi/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/santiment/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/zcoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/walton/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/gamecredits/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/bitcoindark/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/chainlink/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/digitalnote/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/gnosis-gno/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/cobinhood/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/bancor/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/quantstamp/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/deepbrain-chain/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin deepbrain-chain\n",
+      "https://coinmarketcap.com/currencies/achain/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/blockv/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/raiden-network-token/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/tenx/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/civic/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/poet/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/paccoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/skycoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/utrust/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/storm/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin storm\n",
+      "https://coinmarketcap.com/currencies/vibe/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/xplay/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/ethlend/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/emercoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/janus/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/time-new-bank/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/storj/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/red-pulse/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/airswap/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/pillar/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/enjin-coin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/paypie/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/nav-coin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/vertcoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/xtrabytes/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/blocknet/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/cryptonex/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/counterparty/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/revain/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/bridgecoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/modum/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/wabi/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/sirin-labs-token/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin sirin-labs-token\n",
+      "https://coinmarketcap.com/currencies/monaco/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/simple-token/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/particl/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/oyster-pearl/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/aragon/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/edgeless/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/bitbay/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/ubiq/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/ripio-credit-network/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/rlc/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/naga/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin naga\n",
+      "https://coinmarketcap.com/currencies/decentraland/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/centra/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/cindicator/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/iot-chain/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin iot-chain\n",
+      "https://coinmarketcap.com/currencies/dynamic-trading-rights/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin dynamic-trading-rights\n",
+      "https://coinmarketcap.com/currencies/cybermiles/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin cybermiles\n",
+      "https://coinmarketcap.com/currencies/unikoin-gold/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/etherparty/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/sonm/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/peercoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/streamr-datacoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/adx-net/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/wagerr/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/singulardtv/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/nuls/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/zencash/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/spankchain/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/quantum-resistant-ledger/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/bread/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin bread\n",
+      "https://coinmarketcap.com/currencies/amber/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/gulden/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/attention-token-of-media/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/einsteinium/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/wings/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/metaverse/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/district0x/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/triggers/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/asch/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/mobilego/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/melon/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/flash/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin flash\n",
+      "https://coinmarketcap.com/currencies/viacoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/library-credit/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/burst/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/firstblood/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/shield-xsh/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/lunyr/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/hempcoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/agoras-tokens/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/gifto/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin gifto\n",
+      "https://coinmarketcap.com/currencies/snovio/historical-data/?start=20171225&end=20180111\n",
+      "Error with coin snovio\n",
+      "https://coinmarketcap.com/currencies/decision-token/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/decent/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/monetha/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/eidoo/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/dimecoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/coss/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/mooncoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/tierion/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/agrello-delta/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/rise/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/voxels/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/shift/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/cloakcoin/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/metal/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/grid/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/loopring/historical-data/?start=20171225&end=20180111\n",
+      "https://coinmarketcap.com/currencies/coindash/historical-data/?start=20171225&end=20180111\n"
+     ]
+    }
+   ],
+   "source": [
+    "zz = create_all_coin_df(all_coin_names[:200])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 63,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "zz.to_csv('test.csv')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 64,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "mcc = zz['Market Cap'].apply(lambda x: \"{:,}\".format(x))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 65,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "x = pd.read_csv('test.csv')\n",
+    "x = x.ix[:,1:]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 66,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "gb = x.groupby('Date')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 67,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "ed = {}\n",
+    "for name, group in x.groupby('Date'):\n",
+    "    ed[name] = list(group.sort_values('Market Cap',ascending = False)['Ticker'])"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 68,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "td = DataFrame(ed)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 69,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "#td['2017-12-25'].apply(lambda x: x + str(td['2017-12-25'].loc[td['2017-12-25'] == x].index.values + 1))"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 70,
+   "metadata": {
+    "collapsed": false
+   },
+   "outputs": [],
+   "source": [
+    "td.to_csv('something.csv')"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {
+    "collapsed": true
+   },
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "anaconda-cloud": {},
+  "kernelspec": {
+   "display_name": "Python [Root]",
+   "language": "python",
+   "name": "Python [Root]"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 2
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython2",
+   "version": "2.7.12"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 0
+}
